@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>검 강화하기 - 추억의 플래시 게임</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Gothic A1', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #0b0f19;
+            color: #f3f4f6;
+        }
+
+        /* Flash Retro Style Glows & Shakes */
+        .flash-box {
+            background: linear-gradient(180deg, #1f293d 0%, #111827 100%);
+            border: 2px solid #374151;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .flash-btn {
+            background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+            border: 1px solid #60a5fa;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 6px rgba(0, 0, 0, 0.3);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        .flash-btn:hover:not(:disabled) {
+            background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+        }
+        .flash-btn:active:not(:disabled) {
+            transform: translateY(1px);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .flash-btn-gold {
+            background: linear-gradient(180deg, #eab308 0%, #ca8a04 100%);
+            border: 1px solid #fde047;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        .flash-btn-gold:hover:not(:disabled) {
+            background: linear-gradient(180deg, #fde047 0%, #d97706 100%);
+        }
+
+        .flash-btn-danger {
+            background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+            border: 1px solid #fca5a5;
+        }
+        .flash-btn-danger:hover:not(:disabled) {
+            background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+        }
+
+        /* Animations */
+        @keyframes anvilHit {
+            0% { transform: scale(1) rotate(0deg); }
+            30% { transform: scale(0.9) rotate(-3deg); }
+            60% { transform: scale(1.1) rotate(3deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        .anim-anvil { animation: anvilHit 0.35s ease-out; }
+
+        @keyframes shatter {
+            0% { transform: scale(1); opacity: 1; filter: contrast(200%) hue-rotate(90deg); }
+            50% { transform: scale(1.2) rotate(15deg); opacity: 0.8; filter: drop-shadow(0 0 20px #ef4444); }
+            100% { transform: scale(0); opacity: 0; filter: blur(10px); }
+        }
+        .anim-shatter { animation: shatter 0.5s forwards ease-in; }
+
+        @keyframes successBeam {
+            0% { filter: drop-shadow(0 0 5px #fff) drop-shadow(0 0 10px #38bdf8); transform: scale(0.95); }
+            50% { filter: drop-shadow(0 0 30px #facc15) drop-shadow(0 0 50px #38bdf8); transform: scale(1.15); }
+            100% { filter: drop-shadow(0 0 10px #38bdf8); transform: scale(1); }
+        }
+        .anim-success { animation: successBeam 0.7s ease-out; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Header / Navbar -->
+    <header class="w-full bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40 shadow-xl">
+        <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">⚔️</span>
+                <div>
+                    <h1 class="text-xl font-black text-amber-400 tracking-tight flex items-center gap-2">
+                        추억의 검 강화하기 <span class="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded font-normal">Flash Remake</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">최고의 전설 검 +25단계에 도전하세요!</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- Gold Display -->
+                <div class="bg-slate-950 px-4 py-2 rounded-lg border border-amber-500/30 flex items-center gap-3">
+                    <span class="text-2xl">💰</span>
+                    <div>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase">소지금 (Gold)</div>
+                        <div id="gold-display" class="text-lg font-black text-amber-300 font-mono">0 G</div>
+                    </div>
+                </div>
+
+                <!-- Auto Income Display -->
+                <div class="bg-slate-950 px-4 py-2 rounded-lg border border-cyan-500/30 flex items-center gap-3">
+                    <span class="text-2xl">⛏️</span>
+                    <div>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase">자동 골드 수익</div>
+                        <div id="cps-display" class="text-lg font-black text-cyan-300 font-mono">+0 G/s</div>
+                    </div>
+                </div>
+
+                <button id="btn-open-codex" class="flash-btn px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                    <span>📖</span> 검 도감
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 my-auto">
+        
+        <!-- Center/Left: Sword Display & Main Action Panel -->
+        <section class="lg:col-span-7 flex flex-col gap-5">
+            
+            <!-- Sword Display Stage -->
+            <div class="flash-box rounded-2xl p-6 relative flex flex-col items-center justify-between min-h-[440px] overflow-hidden">
+                
+                <!-- Background Particle Effect Canvas -->
+                <canvas id="canvas-bg" class="absolute inset-0 pointer-events-none w-full h-full"></canvas>
+
+                <!-- Top Info Bar -->
+                <div class="w-full flex justify-between items-center z-10">
+                    <span id="sword-level-badge" class="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md font-mono text-sm font-black">
+                        +0
+                    </span>
+                    <span id="sword-tier-name" class="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        [하급]
+                    </span>
+                </div>
+
+                <!-- Center Sword Visual Container -->
+                <div id="sword-stage" class="relative my-6 flex items-center justify-center cursor-pointer transform hover:scale-105 transition-transform duration-200 z-10">
+                    <div id="sword-wrapper" class="transition-all duration-200">
+                        <!-- Dynamic SVG Sword inserted here -->
+                    </div>
+                </div>
+
+                <!-- Bottom Sword Stats -->
+                <div class="w-full text-center z-10 bg-slate-900/80 p-4 rounded-xl border border-slate-800 backdrop-blur-sm">
+                    <h2 id="sword-name" class="text-2xl md:text-3xl font-black text-white mb-1">
+                        목검
+                    </h2>
+                    <p id="sword-desc" class="text-xs text-slate-400 mb-3 h-8 flex items-center justify-center">
+                        연습용으로 제작된 가벼운 나무검입니다.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+                        <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                            <span class="text-slate-500 block text-[10px]">공격력 (DPS)</span>
+                            <span id="sword-power" class="text-amber-400 font-bold text-sm">+1</span>
+                        </div>
+                        <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                            <span class="text-slate-500 block text-[10px]">검 판매 가치</span>
+                            <span id="sword-sell-value" class="text-green-400 font-bold text-sm">5 G</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhancement Action Panel -->
+            <div class="flash-box rounded-2xl p-5 flex flex-col gap-4">
+                
+                <!-- Enhancement Stats Bar -->
+                <div class="grid grid-cols-3 gap-3 text-center text-xs">
+                    <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block mb-1">강화 성공 확률</span>
+                        <span id="stat-rate" class="text-green-400 font-bold font-mono text-base">100%</span>
+                    </div>
+                    <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block mb-1">실패 시 페널티</span>
+                        <span id="stat-penalty" class="text-rose-400 font-bold font-mono text-xs">없음</span>
+                    </div>
+                    <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block mb-1">필요 골드</span>
+                        <span id="stat-cost" class="text-amber-300 font-bold font-mono text-base">10 G</span>
+                    </div>
+                </div>
+
+                <!-- Scroll Checkbox Toggles -->
+                <div class="flex flex-wrap gap-4 justify-center bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="chk-luck" class="w-4 h-4 rounded accent-indigo-500">
+                        <span class="text-slate-300">성공 확률 증가 주문서 사용 (+10%) <b id="cnt-luck-scroll" class="text-indigo-400 font-mono">(0개)</b></span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="chk-shield" class="w-4 h-4 rounded accent-rose-500">
+                        <span class="text-slate-300">파괴 방지 주문서 사용 <b id="cnt-shield-scroll" class="text-rose-400 font-mono">(0개)</b></span>
+                    </label>
+                </div>
+
+                <!-- Big Action Buttons -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button id="btn-enhance" class="flash-btn md:col-span-2 py-4 px-6 rounded-xl font-black text-lg text-white flex items-center justify-center gap-2">
+                        <span>🔨 검 강화하기</span>
+                    </button>
+                    <button id="btn-sell-sword" class="flash-btn-danger py-4 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-1">
+                        <span>💰 검 판매하기</span>
+                    </button>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- Right Side: Mining, Shop & Event Logs -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+            
+            <!-- Manual Gold Mining Panel -->
+            <div class="flash-box rounded-2xl p-4 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-3xl">⛏️</div>
+                    <div>
+                        <h3 class="font-bold text-sm text-white">골드 광산 채굴</h3>
+                        <p class="text-xs text-slate-400">클릭하여 골드를 대량 수집합니다.</p>
+                    </div>
+                </div>
+                <button id="btn-mine-gold" class="flash-btn-gold px-5 py-3 rounded-xl font-black text-sm text-gray-950 flex flex-col items-center">
+                    <span>채굴하기</span>
+                    <span id="mine-amount" class="text-[10px] font-mono">+1 G</span>
+                </button>
+            </div>
+
+            <!-- Scroll & Upgrade Shop -->
+            <div class="flash-box rounded-2xl p-4 flex flex-col h-[280px]">
+                <h3 class="font-bold text-sm text-slate-300 border-b border-slate-800 pb-2 mb-3 flex items-center gap-2">
+                    <span>🛒</span> 강화 지원 상점
+                </h3>
+                <div class="space-y-3 overflow-y-auto pr-1 flex-1">
+                    
+                    <!-- Item 1: Luck Scroll -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">📜</span>
+                            <div>
+                                <div class="text-xs font-bold text-slate-200">성공 확률 증가 주문서</div>
+                                <div class="text-[11px] text-slate-400">강화 성공률 +10% 보너스</div>
+                            </div>
+                        </div>
+                        <button id="buy-luck-scroll" class="flash-btn px-3 py-2 rounded-lg text-xs font-mono font-bold">
+                            100 G
+                        </button>
+                    </div>
+
+                    <!-- Item 2: Shield Scroll -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">🛡️</span>
+                            <div>
+                                <div class="text-xs font-bold text-slate-200">파괴 방지 주문서</div>
+                                <div class="text-[11px] text-slate-400">실패 시 검 파괴/하락 방지</div>
+                            </div>
+                        </div>
+                        <button id="buy-shield-scroll" class="flash-btn px-3 py-2 rounded-lg text-xs font-mono font-bold">
+                            500 G
+                        </button>
+                    </div>
+
+                    <!-- Item 3: Auto Miner Upgrade -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">⚙️</span>
+                            <div>
+                                <div class="text-xs font-bold text-slate-200">자동 광산 굴착기</div>
+                                <div class="text-[11px] text-slate-400">초당 자동 골드 획득 증대</div>
+                                <div id="auto-miner-lvl" class="text-[10px] text-cyan-400 font-mono">LV. 0</div>
+                            </div>
+                        </div>
+                        <button id="buy-auto-miner" class="flash-btn px-3 py-2 rounded-lg text-xs font-mono font-bold">
+                            200 G
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Activity / Event Log -->
+            <div class="flash-box rounded-2xl p-4 flex flex-col flex-1 min-h-[160px]">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                    <h3 class="font-bold text-xs text-slate-400 uppercase tracking-wider">전투 & 강화 기록</h3>
+                    <button id="btn-clear-log" class="text-[10px] text-slate-500 hover:text-slate-300">지우기</button>
+                </div>
+                <div id="log-console" class="flex-1 overflow-y-auto space-y-1 text-xs font-mono pr-1 max-h-[130px]">
+                    <div class="text-slate-500 italic">게임에 접속했습니다. 검 강화를 시작해보세요!</div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Codex / Collection Modal -->
+    <div id="codex-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="flash-box rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col p-6 border-slate-700">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                <h2 class="text-lg font-black text-amber-400 flex items-center gap-2">
+                    <span>📖</span> 전설의 검 도감 (Sword Codex)
+                </h2>
+                <button id="btn-close-codex" class="text-slate-400 hover:text-white font-bold text-xl px-2">✕</button>
+            </div>
+            
+            <div id="codex-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3 overflow-y-auto pr-2 flex-1">
+                <!-- Codex Items dynamically rendered -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Synthesizer & Game Logic -->
+    <script>
+        /* ==========================================================================
+           1. FLASH-STYLE WEB AUDIO SYNTHESIZER
+           ========================================================================== */
+        class RetroAudio {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Anvil Hammering Sound
+            playAnvil() {
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                // Metal clack
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.08);
+
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            // Success Fanfare Tone
+            playSuccess() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [440, 554.37, 659.25, 880]; // A4, C#5, E5, A5
+                
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.06);
+                    
+                    gain.gain.setValueAtTime(0.25, now + i * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.06);
+                    osc.stop(now + i * 0.06 + 0.25);
+                });
+            }
+
+            // Shatter / Failure Sound
+            playShatter() {
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                // Low noise burst
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(40, now + 0.35);
+
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            }
+
+            // Coin / Gold Sound
+            playCoin() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now); // B5
+                osc.frequency.setValueAtTime(1318.51, now + 0.06); // E6
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+        }
+
+        const audio = new RetroAudio();
+
+        /* ==========================================================================
+           2. 25 ENHANCEMENT TIERS OF SWORDS (FULL DATASET)
+           ========================================================================== */
+        const SWORDS_DATA = [
+            { level: 0, name: "목검", tier: "하급", desc: "연습용 가벼운 나무검.", baseCost: 10, rate: 1.0, power: 1, sell: 5, color: "#78350f" },
+            { level: 1, name: "녹슨 숏소드", tier: "하급", desc: "오래되어 녹이 슨 단검.", baseCost: 20, rate: 0.95, power: 3, sell: 15, color: "#6b7280" },
+            { level: 2, name: "강철 장검", tier: "하급", desc: "일반 병사들이 사용하는 표준 강철검.", baseCost: 50, rate: 0.90, power: 8, sell: 40, color: "#94a3b8" },
+            { level: 3, name: "사철검", tier: "중급", desc: "모래 철을 정밀히 단조한 세검.", baseCost: 120, rate: 0.85, power: 18, sell: 100, color: "#475569" },
+            { level: 4, name: "은빛 레이피어", tier: "중급", desc: "눈부신 은으로 장식된 신사의 세검.", baseCost: 300, rate: 0.80, power: 40, sell: 250, color: "#cbd5e1" },
+            { level: 5, name: "기사의 카타나", tier: "중급", desc: "동방에서 건너온 예리한 명검.", baseCost: 750, rate: 0.75, power: 90, sell: 600, color: "#e2e8f0" },
+            { level: 6, name: "화염검", tier: "상급", desc: "불꽃의 마력이 깃든 붉은 blade.", baseCost: 1800, rate: 0.70, power: 200, sell: 1500, color: "#ef4444" },
+            { level: 7, name: "빙하검", tier: "상급", desc: "만년설의 차가운 정기를 머금은 냉기 검.", baseCost: 4500, rate: 0.65, power: 450, sell: 3800, color: "#38bdf8" },
+            { level: 8, name: "뇌전 대검", tier: "상급", desc: "벼락을 불러일으키는 중형 전도검.", baseCost: 10000, rate: 0.60, power: 1000, sell: 9000, color: "#facc15" },
+            { level: 9, name: "바람의 룬소드", tier: "보물", desc: "바람의 문양이 새겨져 가볍고 신속한 검.", baseCost: 25000, rate: 0.55, power: 2200, sell: 22000, color: "#34d399" },
+            { level: 10, name: "흑철 중검", tier: "보물", desc: "묵직한 흑철로 그 어떤 둔기보다 파괴력이 강함.", baseCost: 60000, rate: 0.50, power: 5000, sell: 55000, color: "#1e293b" },
+            { level: 11, name: "영혼 깃든 검", tier: "보물", desc: "원혼의 붉은 눈동자가 베는 대상을 노려봄.", baseCost: 140000, rate: 0.45, power: 11000, sell: 130000, color: "#a855f7" },
+            { level: 12, name: "성광의 블레이드", tier: "전설", desc: "성스러운 성물로 제련된 빛의 엑스칼리버.", baseCost: 320000, rate: 0.40, power: 25000, sell: 300000, color: "#fbbf24" },
+            { level: 13, name: "용비늘 슬레이어", tier: "전설", desc: "고대 붉은 드래곤의 가죽과 뼈로 조각함.", baseCost: 750000, rate: 0.35, power: 55000, sell: 700000, color: "#dc2626" },
+            { level: 14, name: "암흑 사신의 낫", tier: "전설", desc: "생명을 앗아가는 사신의 검은 날.", baseCost: 1800000, rate: 0.30, power: 120000, sell: 1600000, color: "#4c1d95" },
+            { level: 15, name: "파천신검", tier: "신화", desc: "하늘을 가르고 차원을 베어버리는 전설의 검.", baseCost: 4200000, rate: 0.25, power: 260000, sell: 3800000, color: "#0284c7" },
+            { level: 16, name: "심연의 마검", tier: "신화", desc: "끝없는 심연에서 태어난 파멸의 기운.", baseCost: 10000000, rate: 0.20, power: 580000, sell: 9000000, color: "#6b21a8" },
+            { level: 17, name: "시공간 절단검", tier: "신화", desc: "시간과 공간의 경계를 허무는 4차원의 검.", baseCost: 25000000, rate: 0.15, power: 1300000, sell: 22000000, color: "#ec4899" },
+            { level: 18, name: "신멸검 (God Killer)", tier: "신성", desc: "신조차 두려워하여 봉인했던 멸신의 정수.", baseCost: 60000000, rate: 0.12, power: 3000000, sell: 55000000, color: "#f43f5e" },
+            { level: 19, name: "태초의 카오스", tier: "신성", desc: "우주 탄생 이전의 혼돈이 서린 검.", baseCost: 150000000, rate: 0.10, power: 7000000, sell: 140000000, color: "#8b5cf6" },
+            { level: 20, name: "은하 창세검", tier: "초월", desc: "수천억 개의 별빛이 집약된 우주의 지배자.", baseCost: 400000000, rate: 0.08, power: 16000000, sell: 360000000, color: "#38bdf8" },
+            { level: 21, name: "절대자의 심판", tier: "초월", desc: "모든 차원의 주인이 내리는 신성한 집행.", baseCost: 1000000000, rate: 0.06, power: 38000000, sell: 900000000, color: "#f59e0b" },
+            { level: 22, name: "무한의 인피니티", tier: "불멸", desc: "끝이 없는 영원의 파동을 지닌 창조의 결정.", baseCost: 2500000000, rate: 0.04, power: 90000000, sell: 2200000000, color: "#10b981" },
+            { level: 23, name: "차원 유일검", tier: "불멸", desc: "존재하는 모든 평행우주를 통틀어 단 하나뿐인 검.", baseCost: 6000000000, rate: 0.03, power: 220000000, sell: 5500000000, color: "#6366f1" },
+            { level: 24, name: "신계 최고검", tier: "신계", desc: "신들의 왕이 다스리는 신계 최강의 상징.", baseCost: 15000000000, rate: 0.02, power: 550000000, sell: 14000000000, color: "#e11d48" },
+            { level: 25, name: "궁극의 창조검", tier: "신계", desc: "우주와 만물을 창조하고 소멸시키는 궁극의 완결체.", baseCost: 40000000000, rate: 0.01, power: 1500000000, sell: 38000000000, color: "#ffffff" }
+        ];
+
+        // Generator for Flash SVG Sword Art
+        function buildSwordSVG(level, color) {
+            const glowFilter = level > 5 ? `filter="url(#glow-${level})"` : '';
+            return `
+            <svg width="220" height="220" viewBox="0 0 100 100" class="drop-shadow-2xl">
+                <defs>
+                    <filter id="glow-${level}" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="${Math.min(5, 1 + level * 0.2)}" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    <linearGradient id="grad-${level}" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="50%" stop-color="${color}"/>
+                        <stop offset="100%" stop-color="#0f172a"/>
+                    </linearGradient>
+                </defs>
+                
+                <!-- Hilt / Handle -->
+                <rect x="46" y="68" width="8" height="24" rx="2" fill="#1e293b" stroke="#475569" stroke-width="1" />
+                <circle cx="50" cy="94" r="5" fill="${level > 10 ? '#facc15' : '#475569'}" />
+
+                <!-- Crossguard -->
+                <path d="M 30 68 Q 50 62 70 68 Q 50 74 30 68 Z" fill="${level > 4 ? '#eab308' : '#64748b'}" stroke="#334155" />
+
+                <!-- Blade -->
+                <path d="M 45 68 L 45 20 L 50 6 L 55 20 L 55 68 Z" fill="url(#grad-${level})" ${glowFilter} />
+                <line x1="50" y1="68" x2="50" y2="12" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+                
+                <!-- Magical Gem Ornaments for higher tiers -->
+                ${level >= 6 ? `<circle cx="50" cy="40" r="3" fill="#ffffff" />` : ''}
+                ${level >= 12 ? `<path d="M 38 48 L 62 48" stroke="${color}" stroke-width="2" />` : ''}
+                ${level >= 18 ? `<circle cx="50" cy="24" r="2.5" fill="#facc15" />` : ''}
+            </svg>`;
+        }
+
+        /* ==========================================================================
+           3. GAME STATE & LOCALSTORAGE
+           ========================================================================== */
+        let state = {
+            gold: 10,
+            swordLevel: 0,
+            scrolls: {
+                luck: 0,
+                shield: 0
+            },
+            upgrades: {
+                autoMiner: 0
+            },
+            unlockedCodex: [0] // Array of unlocked sword levels
+        };
+
+        function saveGame() {
+            try {
+                localStorage.setItem('sword_flash_save', JSON.stringify(state));
+            } catch(e) {}
+        }
+
+        function loadGame() {
+            try {
+                const saved = localStorage.getItem('sword_flash_save');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    state = { ...state, ...parsed };
+                    if (!state.unlockedCodex.includes(state.swordLevel)) {
+                        state.unlockedCodex.push(state.swordLevel);
+                    }
+                }
+            } catch(e) {}
+        }
+
+        /* ==========================================================================
+           4. DOM ELEMENTS & CANVAS PARTICLES
+           ========================================================================== */
+        const elGold = document.getElementById('gold-display');
+        const elCps = document.getElementById('cps-display');
+        const elSwordLevel = document.getElementById('sword-level-badge');
+        const elSwordTier = document.getElementById('sword-tier-name');
+        const elSwordName = document.getElementById('sword-name');
+        const elSwordDesc = document.getElementById('sword-desc');
+        const elSwordWrapper = document.getElementById('sword-wrapper');
+        const elSwordPower = document.getElementById('sword-power');
+        const elSwordSell = document.getElementById('sword-sell-value');
+
+        const elStatRate = document.getElementById('stat-rate');
+        const elStatPenalty = document.getElementById('stat-penalty');
+        const elStatCost = document.getElementById('stat-cost');
+
+        const chkLuck = document.getElementById('chk-luck');
+        const chkShield = document.getElementById('chk-shield');
+        const elCntLuck = document.getElementById('cnt-luck-scroll');
+        const elCntShield = document.getElementById('cnt-shield-scroll');
+
+        const btnEnhance = document.getElementById('btn-enhance');
+        const btnSell = document.getElementById('btn-sell-sword');
+        const btnMine = document.getElementById('btn-mine-gold');
+        const elMineAmount = document.getElementById('mine-amount');
+
+        const btnBuyLuck = document.getElementById('buy-luck-scroll');
+        const btnBuyShield = document.getElementById('buy-shield-scroll');
+        const btnBuyAuto = document.getElementById('buy-auto-miner');
+        const elAutoMinerLvl = document.getElementById('auto-miner-lvl');
+
+        const logConsole = document.getElementById('log-console');
+        const codexModal = document.getElementById('codex-modal');
+        const codexGrid = document.getElementById('codex-grid');
+
+        // Canvas Particle Effects for High Level Swords
+        const canvas = document.getElementById('canvas-bg');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function createParticle() {
+            if (state.swordLevel < 4) return;
+            const current = getCurrentSword();
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: canvas.height + 10,
+                size: Math.random() * 3 + 1,
+                speedY: Math.random() * 1.5 + 0.5,
+                color: current.color,
+                alpha: 1
+            });
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (state.swordLevel >= 4 && particles.length < 30) {
+                createParticle();
+            }
+
+            particles.forEach((p, idx) => {
+                p.y -= p.speedY;
+                p.alpha -= 0.008;
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (p.alpha <= 0 || p.y < 0) {
+                    particles.splice(idx, 1);
+                }
+            });
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(animateParticles);
+        }
+
+        /* ==========================================================================
+           5. GAME COMPUTATION HELPERS
+           ========================================================================== */
+        function getCurrentSword() {
+            return SWORDS_DATA[Math.min(state.swordLevel, SWORDS_DATA.length - 1)];
+        }
+
+        function getMineAmount() {
+            const current = getCurrentSword();
+            return Math.max(1, Math.floor(current.power * 0.4));
+        }
+
+        function getAutoCPS() {
+            const current = getCurrentSword();
+            const baseCPS = Math.floor(current.power * 0.15);
+            return baseCPS + (state.upgrades.autoMiner * 10);
+        }
+
+        function getCalculatedRate() {
+            const current = getCurrentSword();
+            let rate = current.rate;
+            if (chkLuck.checked && state.scrolls.luck > 0) {
+                rate += 0.10; // +10% boost
+            }
+            return Math.min(1.0, rate);
+        }
+
+        function getPenaltyText() {
+            if (state.swordLevel === 0) return "없음";
+            if (chkShield.checked && state.scrolls.shield > 0) return "방지됨 (주문서)";
+            if (state.swordLevel < 5) return "없음";
+            if (state.swordLevel < 12) return "강화 1단계 하락";
+            return "검 파괴 (0단계로 리셋)";
+        }
+
+        /* ==========================================================================
+           6. UI UPDATER & LOG SYSTEM
+           ========================================================================== */
+        function addLog(msg, color = "text-slate-400") {
+            const line = document.createElement('div');
+            const time = new Date().toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            line.className = `${color} flex justify-between`;
+            line.innerHTML = `<span>${msg}</span><span class="text-[10px] text-slate-600">${time}</span>`;
+            logConsole.prepend(line);
+            if (logConsole.children.length > 25) logConsole.removeChild(logConsole.lastChild);
+        }
+
+        function updateUI() {
+            const current = getCurrentSword();
+            const isMax = state.swordLevel >= SWORDS_DATA.length - 1;
+
+            // Top Header
+            elGold.textContent = `${state.gold.toLocaleString()} G`;
+            elCps.textContent = `+${getAutoCPS().toLocaleString()} G/s`;
+
+            // Sword Info Panel
+            elSwordLevel.textContent = `+${state.swordLevel}`;
+            elSwordTier.textContent = `[${current.tier}]`;
+            elSwordTier.style.color = current.color;
+            elSwordName.textContent = current.name;
+            elSwordDesc.textContent = current.desc;
+            elSwordPower.textContent = `+${current.power.toLocaleString()}`;
+            elSwordSell.textContent = `${current.sell.toLocaleString()} G`;
+
+            // SVG Graphic
+            elSwordWrapper.innerHTML = buildSwordSVG(state.swordLevel, current.color);
+
+            // Enhance Panel
+            const calculatedRate = getCalculatedRate();
+            elStatRate.textContent = `${Math.round(calculatedRate * 100)}%`;
+            elStatPenalty.textContent = getPenaltyText();
+            elStatCost.textContent = `${current.baseCost.toLocaleString()} G`;
+
+            // Scroll Inventory
+            elCntLuck.textContent = `(${state.scrolls.luck}개)`;
+            elCntShield.textContent = `(${state.scrolls.shield}개)`;
+            chkLuck.disabled = state.scrolls.luck <= 0;
+            chkShield.disabled = state.scrolls.shield <= 0;
+            if (state.scrolls.luck <= 0) chkLuck.checked = false;
+            if (state.scrolls.shield <= 0) chkShield.checked = false;
+
+            // Action Buttons
+            btnEnhance.disabled = isMax || state.gold < current.baseCost;
+            if (isMax) {
+                btnEnhance.innerHTML = "<span>👑 최고 강화 단계 도달!</span>";
+            } else {
+                btnEnhance.innerHTML = `<span>🔨 검 강화하기 (+${state.swordLevel + 1})</span>`;
+            }
+
+            btnSell.disabled = state.swordLevel === 0;
+
+            // Mining Panel
+            elMineAmount.textContent = `+${getMineAmount().toLocaleString()} G`;
+
+            // Shop Costs & Buttons
+            const autoCost = Math.floor(200 * Math.pow(1.6, state.upgrades.autoMiner));
+            btnBuyAuto.textContent = `${autoCost.toLocaleString()} G`;
+            btnBuyAuto.disabled = state.gold < autoCost;
+            elAutoMinerLvl.textContent = `LV. ${state.upgrades.autoMiner}`;
+
+            btnBuyLuck.disabled = state.gold < 100;
+            btnBuyShield.disabled = state.gold < 500;
+
+            saveGame();
+        }
+
+        /* ==========================================================================
+           7. ENHANCEMENT ACTION HANDLER
+           ========================================================================== */
+        btnEnhance.addEventListener('click', () => {
+            const current = getCurrentSword();
+            if (state.gold < current.baseCost) return;
+
+            audio.playAnvil();
+            state.gold -= current.baseCost;
+
+            const rate = getCalculatedRate();
+            const roll = Math.random();
+
+            // Check if scroll was consumed
+            if (chkLuck.checked && state.scrolls.luck > 0) {
+                state.scrolls.luck--;
+            }
+            const useShield = chkShield.checked && state.scrolls.shield > 0;
+            if (useShield) {
+                state.scrolls.shield--;
+            }
+
+            if (roll < rate) {
+                // SUCCESS
+                audio.playSuccess();
+                state.swordLevel++;
+                
+                if (!state.unlockedCodex.includes(state.swordLevel)) {
+                    state.unlockedCodex.push(state.swordLevel);
+                }
+
+                const nextSword = getCurrentSword();
+                addLog(`✨ [강화 성공] +${state.swordLevel}단계 [${nextSword.name}] 획득!`, "text-green-400 font-bold");
+
+                // Flash Animation Effect
+                elSwordWrapper.className = "anim-success";
+                setTimeout(() => elSwordWrapper.className = "", 700);
+
+            } else {
+                // FAILURE
+                if (useShield) {
+                    audio.playShatter();
+                    addLog(`🛡️ [강화 실패] 파괴 방지 주문서로 검을 보호했습니다!`, "text-amber-400 font-bold");
+                } else {
+                    if (state.swordLevel < 5) {
+                        audio.playShatter();
+                        addLog(`💥 [강화 실패] 강화 실패! (단계 유지)`, "text-rose-400");
+                    } else if (state.swordLevel < 12) {
+                        audio.playShatter();
+                        state.swordLevel--;
+                        addLog(`💥 [강화 실패] 강화 하락! (+${state.swordLevel}단계로 감소)`, "text-rose-400 font-bold");
+                    } else {
+                        // Shatter / Destroyed completely
+                        audio.playShatter();
+                        addLog(`🔥 [검 파괴!!] 강화 실패로 검이 산산조각 났습니다! (+0단계 목검으로 초기화)`, "text-red-500 font-black");
+                        state.swordLevel = 0;
+                    }
+                }
+
+                // Shatter Animation Effect
+                elSwordWrapper.className = "anim-shatter";
+                setTimeout(() => elSwordWrapper.className = "", 500);
+            }
+
+            updateUI();
+        });
+
+        /* ==========================================================================
+           8. OTHER ACTIONS & SHOPS
+           ========================================================================== */
+        // Sell Sword Action
+        btnSell.addEventListener('click', () => {
+            const current = getCurrentSword();
+            if (state.swordLevel === 0) return;
+
+            audio.playCoin();
+            const reward = current.sell;
+            state.gold += reward;
+            addLog(`💰 [+${state.swordLevel} ${current.name}]을(를) 판매하여 ${reward.toLocaleString()} G 획득!`, "text-amber-300 font-bold");
+            
+            state.swordLevel = 0; // Reset to 0
+            updateUI();
+        });
+
+        // Mine Gold Action
+        btnMine.addEventListener('click', () => {
+            audio.playCoin();
+            const amount = getMineAmount();
+            state.gold += amount;
+            updateUI();
+        });
+
+        // Shop Buy Items
+        btnBuyLuck.addEventListener('click', () => {
+            if (state.gold >= 100) {
+                audio.playCoin();
+                state.gold -= 100;
+                state.scrolls.luck++;
+                addLog(`📜 성공 확률 증가 주문서 구매 완료!`, "text-indigo-300");
+                updateUI();
+            }
+        });
+
+        btnBuyShield.addEventListener('click', () => {
+            if (state.gold >= 500) {
+                audio.playCoin();
+                state.gold -= 500;
+                state.scrolls.shield++;
+                addLog(`🛡️ 파괴 방지 주문서 구매 완료!`, "text-rose-300");
+                updateUI();
+            }
+        });
+
+        btnBuyAuto.addEventListener('click', () => {
+            const autoCost = Math.floor(200 * Math.pow(1.6, state.upgrades.autoMiner));
+            if (state.gold >= autoCost) {
+                audio.playCoin();
+                state.gold -= autoCost;
+                state.upgrades.autoMiner++;
+                addLog(`⚙️ 자동 광산 굴착기 LV.${state.upgrades.autoMiner} 업그레이드 완료!`, "text-cyan-300");
+                updateUI();
+            }
+        });
+
+        document.getElementById('btn-clear-log').addEventListener('click', () => {
+            logConsole.innerHTML = '';
+        });
+
+        /* ==========================================================================
+           9. CODEX MODAL SYSTEM
+           ========================================================================== */
+        function renderCodex() {
+            codexGrid.innerHTML = '';
+            SWORDS_DATA.forEach(sword => {
+                const isUnlocked = state.unlockedCodex.includes(sword.level);
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-xl border flex flex-col items-center text-center ${
+                    isUnlocked 
+                    ? 'bg-slate-900 border-slate-700' 
+                    : 'bg-slate-950/40 border-slate-900 opacity-40'
+                }`;
+
+                card.innerHTML = `
+                    <div class="w-16 h-16 flex items-center justify-center my-1">
+                        ${isUnlocked ? buildSwordSVG(sword.level, sword.color) : '<span class="text-2xl text-slate-700">🔒</span>'}
+                    </div>
+                    <div class="text-[10px] font-mono text-amber-400 font-bold">+${sword.level}단계</div>
+                    <div class="text-xs font-bold text-white mb-0.5">${isUnlocked ? sword.name : '????'}</div>
+                    <div class="text-[10px] text-slate-400">${isUnlocked ? sword.tier : '미해금'}</div>
+                `;
+                codexGrid.appendChild(card);
+            });
+        }
+
+        document.getElementById('btn-open-codex').addEventListener('click', () => {
+            renderCodex();
+            codexModal.classList.remove('hidden');
+        });
+
+        document.getElementById('btn-close-codex').addEventListener('click', () => {
+            codexModal.classList.add('hidden');
+        });
+
+        /* ==========================================================================
+           10. AUTOMATIC LOOPS
+           ========================================================================== */
+        // Auto Gold Generation Loop (every 1s)
+        setInterval(() => {
+            const cps = getAutoCPS();
+            if (cps > 0) {
+                state.gold += cps;
+                updateUI();
+            }
+        }, 1000);
+
+        // Initialize Game
+        window.onload = () => {
+            resizeCanvas();
+            loadGame();
+            updateUI();
+            animateParticles();
+        };
+    </script>
+</body>
+</html>
